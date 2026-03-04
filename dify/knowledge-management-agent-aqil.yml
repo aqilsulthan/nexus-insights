@@ -1,0 +1,782 @@
+app:
+  description: Knowledge Management Agent for Insights Platform. Accepts uploaded
+    documents (PDF, TXT, video transcript), extracts the core explanation and summary,
+    detects whether the topic already exists, and either creates a new blog topic
+    or updates the existing version — then indexes the content into the Dify Knowledge
+    Base for RAG retrieval.
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: knowledge-management-agent-aqil
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.30@04fa1c28928e92e425bc946f8f4f5c8f14d0531786c384f128c0e9445f1eee56
+    version: null
+kind: app
+version: 0.5.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: 1772503013783-source-1772503842426-target
+      source: '1772503013783'
+      sourceHandle: source
+      target: '1772503842426'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: llm
+      id: 1772503842426-source-1772503887376-target
+      source: '1772503842426'
+      sourceHandle: source
+      target: '1772503887376'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: llm
+      id: 1772503887376-source-1772504009862-target
+      source: '1772503887376'
+      sourceHandle: source
+      target: '1772504009862'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: if-else
+      id: 1772504009862-source-1772504063084-target
+      source: '1772504009862'
+      sourceHandle: source
+      target: '1772504063084'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1772504063084-true-1772504158924-target
+      source: '1772504063084'
+      sourceHandle: 'true'
+      target: '1772504158924'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: if-else
+        targetType: llm
+      id: 1772504063084-false-1772504232773-target
+      source: '1772504063084'
+      sourceHandle: 'false'
+      target: '1772504232773'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1772504158924-source-1772504333458-target
+      source: '1772504158924'
+      sourceHandle: source
+      target: '1772504333458'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1772504232773-source-1772504333458-target
+      source: '1772504232773'
+      sourceHandle: source
+      target: '1772504333458'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: end
+      id: 1772504333458-source-1772504573142-target
+      source: '1772504333458'
+      sourceHandle: source
+      target: '1772504573142'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: Entry point. Accepts a file (PDF/TXT/DOCX/SRT/VTT) and optional metadata
+          like author name, category, and the list of existing topic slugs so the
+          agent can decide if this is new or an update.
+        selected: false
+        title: Start
+        type: start
+        variables:
+        - allowed_file_extensions: []
+          allowed_file_types:
+          - image
+          - document
+          - audio
+          - video
+          allowed_file_upload_methods:
+          - local_file
+          - remote_url
+          default: ''
+          hint: ''
+          label: uploaded_file
+          max_length: 48
+          options: []
+          placeholder: ''
+          required: true
+          type: file
+          variable: uploaded_file
+        - default: ''
+          hint: ''
+          label: file_name
+          max_length: 100
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: file_name
+        - default: john doe
+          hint: ''
+          label: author_name
+          max_length: 100
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: author_name
+        - default: writer
+          hint: ''
+          label: author_role
+          max_length: 100
+          options: []
+          placeholder: ''
+          required: true
+          type: text-input
+          variable: author_role
+        - hint: ''
+          label: category
+          max_length: 48
+          options:
+          - Artificial Intelligence
+          - Digital Transformation
+          - Leadership
+          - Strategy
+          - Finance
+          - Operations
+          placeholder: ''
+          required: true
+          type: select
+          variable: category
+        - default: ''
+          hint: ''
+          label: existing_slugs_json
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: existing_slugs_json
+        - default: ''
+          hint: ''
+          label: existing_contents_json
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: existing_contents_json
+      height: 372
+      id: '1772503013783'
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: Detects whether the uploaded file is a document (PDF/DOCX/TXT/MD), a
+          video transcript (SRT/VTT), or structured data. Extracts and normalizes
+          the raw text content for downstream processing.
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-coder-turbo-latest
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 7b9bfbca-f581-4c3a-bfd4-81dc59db8792
+          role: system
+          text: "You are a document processing specialist. Your task is to analyze\
+            \ an uploaded file and extract its complete text content in a clean, structured\
+            \ format.\nRules: - If the file is a video transcript (SRT/VTT format),\
+            \ remove all\n  timestamps and speaker labels, keeping only the spoken\
+            \ content\n- If the file is a PDF or DOCX, preserve headings, paragraphs,\
+            \ and\n  lists but strip page numbers, headers/footers, and metadata\n\
+            - If the file is markdown, preserve the structure - Output only the clean\
+            \ extracted text — no commentary\nDetect and output the file type as one\
+            \ of:\n  document | transcript | markdown | data\n\nFormat your response\
+            \ as JSON: {\n  \"file_type\": \"document|transcript|markdown|data\",\n\
+            \  \"raw_text\": \"... full extracted and cleaned text ...\",\n  \"detected_language\"\
+            : \"en\",\n  \"word_count\": 1234\n}"
+        - id: e7b8c93c-611d-4185-86d3-a0ced1b5086a
+          role: user
+          text: 'File name: {{#1772503013783.file_name#}}
+
+            File content: {{#1772503013783.uploaded_file#}}
+
+            Extract and return the clean text content as JSON.'
+        selected: false
+        title: Document Classifier
+        type: llm
+        vision:
+          enabled: false
+      height: 179
+      id: '1772503842426'
+      position:
+        x: 382
+        y: 282
+      positionAbsolute:
+        x: 382
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 'Deeply analyzes the cleaned document text and extracts structured content:
+          title, subtitle, executive summary, key sections, statistics, quotes, and
+          tags. This becomes the foundation for the blog article.'
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3.5-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 8a48b776-92e6-4a9a-ba33-497571d7d97a
+          role: system
+          text: "You are an expert content strategist and editor for a management\
+            \ consulting insights platform (think Nexus Research Institute).\nGiven\
+            \ a raw document text, you must extract and structure the core intellectual\
+            \ content into a precise JSON format.\nExtract: 1. title — concise, authoritative\
+            \ (max 80 chars) 2. subtitle — one compelling sentence expanding on the\
+            \ title (max 150 chars) 3. topic_slug — URL-safe lowercase slug (e.g.\
+            \ \"ai-in-the-workplace-2025\") 4. category — one of: Artificial Intelligence,\
+            \ Digital Transformation,\n   Leadership, Strategy, Finance, Operations\n\
+            5. excerpt — 2-3 sentences capturing the core argument (max 300 chars)\
+            \ 6. key_stats — array of up to 5 data points: [{number: \"92%\", label:\
+            \ \"...\"}] 7. main_sections — array of sections, each with:\n   - heading\
+            \ (string)\n   - content (2-4 paragraphs of clean prose, Professional style)\n\
+            \   - bullets (array of key bullet points, max 5 per section)\n8. key_quotes\
+            \ — array of up to 3 notable quotes or insights from the text 9. tags\
+            \ — array of 4-8 relevant topic tags 10. executive_summary — 150-word\
+            \ distillation of the document's core argument 11. read_time — estimated\
+            \ read time (e.g. \"8 min read\") 12. version_notes — what's new/changed\
+            \ if this seems like an update to\n    existing content (or null if it\
+            \ appears to be entirely new content)\n\nOutput ONLY valid JSON. No preamble,\
+            \ no explanation."
+        - id: 5f997790-29ac-4a86-9817-2dc0de6b0fc3
+          role: user
+          text: "Author: {{#1772503013783.author_name#}} \nPreferred Category: {{#1772503013783.category#}}\n\
+            File type detected: {{#1772503842426.text#}}\nRaw document text to analyze:\
+            \ --- {{#1772503842426.text#}} ---\nExtract and return structured content\
+            \ as JSON."
+        selected: false
+        title: Content Extractor
+        type: llm
+        vision:
+          configs:
+            detail: high
+            variable_selector:
+            - '1772503013783'
+            - uploaded_file
+          enabled: true
+      height: 195
+      id: '1772503887376'
+      position:
+        x: 684
+        y: 282
+      positionAbsolute:
+        x: 684
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen-coder-turbo-latest
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 43118e76-6976-4489-a114-f0f45c850d0a
+          role: system
+          text: "You are a content deduplication system. Given a new document's topic\
+            \ slug and a list of existing topic slugs, determine:\n1. is_new_topic\
+            \ — true if this topic has never been covered before,\n   false if a similar\
+            \ topic already exists\n2. matching_slug — if is_new_topic is false, the\
+            \ slug of the most\n   similar existing article (or null)\n3. similarity_reason\
+            \ — brief explanation of why you think it matches\n   (or \"No match found\"\
+            \ if new)\n\nMatching rules: - Exact slug match → always is_new_topic:\
+            \ false - Same core subject with different year/date → is_new_topic: false\
+            \ (it's an update) - Same general theme but distinctly different angle\
+            \ → is_new_topic: true - When in doubt → is_new_topic: true (prefer creating\
+            \ new)\nOutput ONLY valid JSON: {\n  \"is_new_topic\": true,\n  \"matching_slug\"\
+            : null,\n  \"similarity_reason\": \"No match found\"\n}"
+        - id: 245c0927-fb4b-4ca0-8748-6c29abf894bf
+          role: user
+          text: 'New document topic slug: {{#1772503887376.text#}}
+
+            Existing topic slugs (JSON array): {{#1772503013783.existing_slugs_json#}}
+
+            Analyze and return the detection result as JSON.'
+        selected: false
+        title: Topic Detector
+        type: llm
+        vision:
+          enabled: false
+      height: 87
+      id: '1772504009862'
+      position:
+        x: 986
+        y: 282
+      positionAbsolute:
+        x: 986
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        cases:
+        - case_id: 'true'
+          conditions:
+          - comparison_operator: contains
+            id: a7dfbff6-cb25-45f0-a217-04fa70feb843
+            value: '"is_new_topic": true'
+            varType: string
+            variable_selector:
+            - '1772504009862'
+            - text
+          id: 'true'
+          logical_operator: and
+        desc: Routes to new blog creation if topic is new, or to version update generator
+          if topic already exists.
+        selected: false
+        title: New or Update?
+        type: if-else
+      height: 183
+      id: '1772504063084'
+      position:
+        x: 1288
+        y: 282
+      positionAbsolute:
+        x: 1288
+        y: 282
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: Generates a complete, publication-ready blog article for a brand new
+          topic. Writes in authoritative Professional editorial style with proper HTML
+          formatting for the Insights platform.
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3.5-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: ff68cbdb-a85d-4608-b025-f4e4c74becf6
+          role: system
+          text: "You are a senior editor at a top management consulting firm's research\
+            \ publication. Your task is to write a complete, authoritative blog article\
+            \ from extracted content.\nStyle guidelines: - Write like Professional Global\
+            \ Institute: clear, authoritative, data-driven - Use <h2> tags for main\
+            \ sections, <h3> for subsections - Use <p> for paragraphs (3-5 sentences\
+            \ each) - Use <ul><li> for bullet lists - Use <blockquote> for key insights\
+            \ or notable quotes - Use <div class=\"stat-callout\"><div class=\"stat-number\"\
+            >X%</div><p>Label</p></div>\n  for compelling statistics\n- No fluff,\
+            \ no hedging — every sentence must add value - Write 600-900 words of\
+            \ body content\nOutput ONLY valid JSON with this exact structure: {\n\
+            \  \"action\": \"create\",\n  \"slug\": \"topic-slug-here\",\n  \"title\"\
+            : \"Article Title\",\n  \"subtitle\": \"One compelling sentence subtitle\"\
+            ,\n  \"category\": \"Category Name\",\n  \"excerpt\": \"2-3 sentence excerpt\"\
+            ,\n  \"author\": \"Author Name\",\n  \"author_role\": \"Author Role\"\
+            ,\n  \"hero_color\": \"#1B40A0\",\n  \"read_time\": \"X min read\",\n\
+            \  \"tags\": [\"tag1\", \"tag2\"],\n  \"stats\": [{\"number\": \"92%\"\
+            , \"label\": \"description\"}],\n  \"content_html\": \"<h2>Section</h2><p>...</p>\"\
+            ,\n  \"kb_text\": \"Plain text version for knowledge base indexing. All\
+            \ key points, stats, and insights in continuous prose.\",\n  \"version\"\
+            : \"1.0\",\n  \"version_notes\": null\n}"
+        - id: 7eecb93d-9276-4bb1-8009-98008598db64
+          role: user
+          text: "Author: {{#1772503013783.author_name#}}\nAuthor Role: {{#1772503013783.author_role#}}\
+            \ \nToday's date: {{#sys.date#}}\nExtracted content to transform into\
+            \ a blog article: {{#1772503887376.text#}}\nWrite the complete blog article\
+            \ and return as JSON."
+        selected: false
+        title: New Blog Generator
+        type: llm
+        vision:
+          enabled: false
+      height: 179
+      id: '1772504158924'
+      position:
+        x: 1606
+        y: 178
+      positionAbsolute:
+        x: 1606
+        y: 178
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: Generates an updated version of an existing blog article. Preserves
+          the original structure but incorporates new data, findings, and insights.
+          Increments the version number and adds version notes.
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3.5-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: c07c6d38-0fae-4d21-a496-6f9d02f95a7e
+          role: system
+          text: "You are a senior editor updating an existing research article with\
+            \ new findings. Your task is to create an updated version that:\n1. Preserves\
+            \ the article's core structure and identity 2. Incorporates all new data,\
+            \ statistics, and insights from the new document 3. Updates outdated figures\
+            \ with current ones 4. Adds a \"What's New\" section at the top highlighting\
+            \ changes 5. Increments the version (1.0 → 2.0, or 1.1 → 1.2 for minor\
+            \ updates) 6. Writes version notes explaining what changed\nStyle: Professional\
+            \ editorial — clear, authoritative, data-driven. Use the same HTML formatting\
+            \ conventions.\nOutput ONLY valid JSON with this exact structure: {\n\
+            \  \"action\": \"update\",\n  \"slug\": \"existing-slug-here\",\n  \"\
+            title\": \"Updated Article Title\",\n  \"subtitle\": \"Updated subtitle\
+            \ reflecting new findings\",\n  \"category\": \"Category Name\",\n  \"\
+            excerpt\": \"Updated 2-3 sentence excerpt\",\n  \"author\": \"Author Name\"\
+            ,\n  \"author_role\": \"Author Role\",\n  \"hero_color\": \"#0D2160\"\
+            ,\n  \"read_time\": \"X min read\",\n  \"tags\": [\"tag1\", \"tag2\"],\n\
+            \  \"stats\": [{\"number\": \"92%\", \"label\": \"description\"}],\n \
+            \ \"content_html\": \"<div class='version-callout'><strong>Updated:</strong>\
+            \ ...</div><h2>What's New in This Version</h2><p>...</p><h2>Section</h2><p>...</p>\"\
+            ,\n  \"kb_text\": \"Plain text for knowledge base. All updated key points,\
+            \ new stats, and insights.\",\n  \"version\": \"2.0\",\n  \"version_notes\"\
+            : \"Updated with 2025 data. New section on X. Revised statistics for Y.\"\
+            \n}"
+        - id: 36635ea1-6986-4e5e-9cac-fda168f7d974
+          role: user
+          text: "Author: {{#1772503013783.author_name#}}\nAuthor Role: {{#1772503013783.author_role#}}\
+            \ \nExisting article slug to update:  {{#1772504009862.text#}}\nToday's\
+            \ date: {{#sys.date#}}\nExisting articles context (find the one matching\
+            \ the slug above): {{#1772503013783.existing_contents_json#}}\nNew content\
+            \ to incorporate: {{#1772503887376.text#}}\nInstructions: - Find the matching\
+            \ article from existing_contents_json using the slug - Preserve the article's\
+            \ core identity and structure - Incorporate all new data and insights\
+            \ from the new content - Add a \"What's New in Version X.0\" section at\
+            \ the top of the body - Update outdated statistics with new figures -\
+            \ Increment version number (1.0 → 2.0, minor update → add 0.1) - Write\
+            \ version_notes summarizing what changed (max 100 chars) - Generate the\
+            \ updated article and return as JSON."
+        selected: false
+        title: Update Generator
+        type: llm
+        vision:
+          enabled: false
+      height: 195
+      id: '1772504232773'
+      position:
+        x: 1606
+        y: 396
+      positionAbsolute:
+        x: 1606
+        y: 396
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\n\ndef main(\n    new_blog_output: str,\n    update_output:\
+          \ str,\n    classifier_output: str,\n    author_name: str,\n    file_name:\
+          \ str\n) -> dict:\n    \"\"\"\n    Merges whichever generator ran (new or\
+          \ update),\n    cleans the JSON, adds metadata, and returns the\n    final\
+          \ payload that the Next.js API will consume.\n    \"\"\"\n    import datetime\n\
+          \n    # Parse classifier to get word count\n    try:\n        classifier\
+          \ = json.loads(classifier_output)\n        word_count = classifier.get(\"\
+          word_count\", 0)\n        file_type = classifier.get(\"file_type\", \"document\"\
+          )\n    except Exception:\n        word_count = 0\n        file_type = \"\
+          document\"\n\n    # Prefer whichever generator produced output\n    raw\
+          \ = new_blog_output if new_blog_output and len(new_blog_output) > 10 else\
+          \ update_output\n\n    # Strip markdown code fences if the LLM wrapped the\
+          \ JSON\n    raw = raw.strip()\n    if raw.startswith(\"```\"):\n       \
+          \ raw = raw.split(\"```\")[1]\n        if raw.startswith(\"json\"):\n  \
+          \          raw = raw[4:]\n    raw = raw.strip().rstrip(\"```\").strip()\n\
+          \n    try:\n        article = json.loads(raw)\n    except json.JSONDecodeError\
+          \ as e:\n        return {\n            \"success\": False,\n           \
+          \ \"error\": f\"JSON parse error: {str(e)}\",\n            \"raw\": raw[:500],\n\
+          \            \"article\": None,\n            \"kb_text\": None,\n      \
+          \  }\n\n    # Add runtime metadata\n    article[\"created_at\"] = datetime.datetime.utcnow().isoformat()\
+          \ + \"Z\"\n    article[\"source_file\"] = file_name\n    article[\"source_file_type\"\
+          ] = file_type\n    article[\"word_count\"] = word_count\n    article[\"\
+          author\"] = article.get(\"author\") or author_name or \"Insights Editorial\"\
+          \n\n    # Derive hero color from action\n    if not article.get(\"hero_color\"\
+          ):\n        article[\"hero_color\"] = \"#1B40A0\" if article.get(\"action\"\
+          ) == \"create\" else \"#0D2160\"\n\n    # Ensure slug is URL-safe\n    slug\
+          \ = article.get(\"slug\", \"\")\n    slug = slug.lower().replace(\" \",\
+          \ \"-\").replace(\"_\", \"-\")\n    import re\n    slug = re.sub(r\"[^a-z0-9-]\"\
+          , \"\", slug)\n    article[\"slug\"] = slug\n\n    # Extract kb_text for\
+          \ knowledge base indexing\n    kb_text = article.pop(\"kb_text\", \"\")\
+          \ or \"\"\n    if not kb_text and article.get(\"content_html\"):\n     \
+          \   # Fallback: strip HTML tags\n        html = article[\"content_html\"\
+          ]\n        kb_text = re.sub(r\"<[^>]+>\", \" \", html).strip()\n       \
+          \ kb_text = re.sub(r\"\\s+\", \" \", kb_text)\n\n    # Build final response\
+          \ payload\n    return {\n        \"success\": True,\n        \"error\":\
+          \ None,\n        \"article\": json.dumps(article),\n        \"kb_text\"\
+          : kb_text,\n        \"action\": article.get(\"action\", \"create\"),\n \
+          \       \"slug\": article.get(\"slug\", \"\"),\n        \"title\": article.get(\"\
+          title\", \"\"),\n        \"version\": article.get(\"version\", \"1.0\"),\n\
+          \    }\n"
+        code_language: python3
+        desc: Merges the generator outputs, sanitizes the JSON, enriches with metadata,
+          extracts plain text for KB indexing, and returns the final structured payload
+          to the End node.
+        outputs:
+          action:
+            children: null
+            type: string
+          article:
+            children: null
+            type: string
+          error:
+            children: null
+            type: string
+          kb_text:
+            children: null
+            type: string
+          slug:
+            children: null
+            type: string
+          success:
+            children: null
+            type: boolean
+          title:
+            children: null
+            type: string
+          version:
+            children: null
+            type: string
+        selected: false
+        title: KB Indexer & Payload Builder
+        type: code
+        variables:
+        - value_selector:
+          - '1772504158924'
+          - text
+          value_type: string
+          variable: new_blog_output
+        - value_selector:
+          - '1772504232773'
+          - text
+          value_type: string
+          variable: update_output
+        - value_selector:
+          - '1772503842426'
+          - text
+          value_type: string
+          variable: classifier_output
+        - value_selector:
+          - '1772503013783'
+          - author_name
+          value_type: string
+          variable: author_name
+        - value_selector:
+          - '1772503013783'
+          - file_name
+          value_type: string
+          variable: file_name
+      height: 143
+      id: '1772504333458'
+      position:
+        x: 1906
+        y: 303
+      positionAbsolute:
+        x: 1906
+        y: 303
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: Returns the complete article payload to the calling Next.js API. The
+          caller uses `article` (JSON) to upsert the blog, and `kb_text` to index
+          the document into the Dify Knowledge Base dataset.
+        outputs:
+        - value_selector:
+          - '1772504333458'
+          - success
+          value_type: boolean
+          variable: success
+        - value_selector:
+          - '1772504333458'
+          - error
+          value_type: string
+          variable: error
+        - value_selector:
+          - '1772504333458'
+          - article
+          value_type: string
+          variable: article
+        - value_selector:
+          - '1772504333458'
+          - kb_text
+          value_type: string
+          variable: kb_text
+        - value_selector:
+          - '1772504333458'
+          - action
+          value_type: string
+          variable: action
+        - value_selector:
+          - '1772504333458'
+          - slug
+          value_type: string
+          variable: slug
+        - value_selector:
+          - '1772504333458'
+          - title
+          value_type: string
+          variable: title
+        - value_selector:
+          - '1772504333458'
+          - version
+          value_type: string
+          variable: version
+        selected: false
+        title: End
+        type: end
+      height: 362
+      id: '1772504573142'
+      position:
+        x: 2208
+        y: 303
+      positionAbsolute:
+        x: 2208
+        y: 303
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 385.88115914237505
+      y: 57.09744650421425
+      zoom: 0.757858283255199
+  rag_pipeline_variables: []

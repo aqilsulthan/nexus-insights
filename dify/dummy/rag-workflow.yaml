@@ -1,0 +1,400 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Ask Insights RAG Workflow — Dify 1.12.1 compatible (DSL v0.6.0)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Import: Dify Studio → Create App → Import DSL → paste/upload this file
+# After import: link your Knowledge Base dataset in the Knowledge Retrieval node
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: "0.6.0"
+kind: app
+
+app:
+  name: Ask Insights RAG Workflow
+  mode: workflow
+  description: >-
+    RAG Workflow for Ask Insights chatbot. Receives a user question,
+    retrieves relevant chunks from the Knowledge Base, generates a
+    grounded answer with inline citations, and returns structured
+    reference cards (blog / video / document).
+  icon: 💡
+  icon_type: emoji
+  icon_background: "#1B40A0"
+  use_icon_as_answer_icon: false
+
+dependencies:
+  - type: model
+    value:
+      model_name: claude-sonnet-4-5
+      provider_name: anthropic
+
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      enabled: false
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+
+  graph:
+    edges:
+      # Start → Knowledge Retrieval
+      - data:
+          isInIteration: false
+          sourceType: start
+          targetType: knowledge-retrieval
+        id: start-knowledge_retrieval
+        source: start
+        sourceHandle: source
+        target: knowledge_retrieval
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Knowledge Retrieval → RAG LLM
+      - data:
+          isInIteration: false
+          sourceType: knowledge-retrieval
+          targetType: llm
+        id: knowledge_retrieval-rag_llm
+        source: knowledge_retrieval
+        sourceHandle: source
+        target: rag_llm
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # RAG LLM → Reference Formatter
+      - data:
+          isInIteration: false
+          sourceType: llm
+          targetType: code
+        id: rag_llm-ref_formatter
+        source: rag_llm
+        sourceHandle: source
+        target: ref_formatter
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Reference Formatter → End
+      - data:
+          isInIteration: false
+          sourceType: code
+          targetType: end
+        id: ref_formatter-end
+        source: ref_formatter
+        sourceHandle: source
+        target: end
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+    nodes:
+      # ─── START ──────────────────────────────────────────
+      - data:
+          desc: User question + optional context inputs for the RAG chatbot
+          selected: false
+          title: Start
+          type: start
+          variables:
+            - label: Question
+              max_length: 2000
+              options: []
+              required: true
+              type: string
+              variable: question
+            - label: Chat History
+              max_length: 10000
+              options: []
+              required: false
+              type: string
+              variable: chat_history
+            - label: Topic Filter
+              max_length: 200
+              options: []
+              required: false
+              type: string
+              variable: topic_filter
+        height: 178
+        id: start
+        position:
+          x: 80
+          y: 320
+        positionAbsolute:
+          x: 80
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─── KNOWLEDGE RETRIEVAL ─────────────────────────────
+      - data:
+          dataset_ids: [] # ← Dify fills this when you link your Knowledge Base
+          desc: >-
+            Retrieves the top-K most relevant document chunks from the
+            Insights Knowledge Base. Configure: Top K = 5, Score ≥ 0.5.
+            Enable reranking if available on your Dify plan.
+          multiple_retrieval_config:
+            reranking_enable: false
+            reranking_mode: reranking_model
+            top_k: 5
+            score_threshold: 0.5
+            score_threshold_enabled: true
+          query_variable_selector:
+            - start
+            - question
+          retrieval_mode: multiple
+          selected: false
+          single_retrieval_config:
+            model:
+              completion_params:
+                temperature: 0.1
+              mode: chat
+              name: claude-sonnet-4-5
+              provider: anthropic
+          title: Knowledge Retrieval
+          type: knowledge-retrieval
+        height: 98
+        id: knowledge_retrieval
+        position:
+          x: 380
+          y: 320
+        positionAbsolute:
+          x: 380
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─── RAG LLM ────────────────────────────────────────
+      - data:
+          context:
+            enabled: true
+            variable_selector:
+              - knowledge_retrieval
+              - result
+          desc: >-
+            Generates a grounded, cited answer from retrieved Knowledge Base
+            chunks. Uses McKinsey editorial style with inline [1][2][3] citations.
+          model:
+            completion_params:
+              temperature: 0.3
+              max_tokens: 1200
+            mode: chat
+            name: claude-sonnet-4-5
+            provider: anthropic
+          prompt_template:
+            - id: sys_rag
+              role: system
+              text: >-
+                You are "Ask Insights" — an expert AI research assistant for a
+                management consulting insights platform.
+
+                RULES:
+                - Answer using ONLY the retrieved context below. Never invent facts.
+                - Write in McKinsey style: structured, authoritative, no filler
+                - Use ## for section headings, bullet points for lists
+                - Add inline citations: [1], [2], [3] in order of first use
+                - Maximum 300 words
+                - If context is insufficient: "This topic isn't fully covered in our
+                  current published insights. Here's what related research shows: ..."
+                - Final line MUST be exactly:
+                  DISCLAIMER: This information is based solely on published insights cited. Verify with the primary sources.
+
+                RETRIEVED CONTEXT:
+                {{#context#}}
+
+                {% if chat_history and chat_history != "" %}
+                PRIOR CONVERSATION:
+                {{chat_history}}
+                {% endif %}
+
+                {% if topic_filter and topic_filter != "" %}
+                Focus on topics related to: {{topic_filter}}
+                {% endif %}
+            - id: usr_rag
+              role: user
+              text: "{{#start.question#}}"
+          selected: false
+          title: RAG Answer Generator
+          type: llm
+          variables:
+            - value_selector:
+                - start
+                - chat_history
+              variable: chat_history
+            - value_selector:
+                - start
+                - topic_filter
+              variable: topic_filter
+          vision:
+            enabled: false
+        height: 98
+        id: rag_llm
+        position:
+          x: 680
+          y: 320
+        positionAbsolute:
+          x: 680
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─── REFERENCE FORMATTER (Code) ──────────────────────
+      - data:
+          code: |
+            import json
+            import re
+
+            def main(knowledge_result: list, llm_answer: str) -> dict:
+                """
+                Deduplicates retrieved chunks by source document and builds
+                structured reference cards: blog / video / document.
+                """
+                seen = set()
+                references = []
+
+                for chunk in (knowledge_result or []):
+                    doc_name = chunk.get("title") or chunk.get("document_name") or ""
+                    if doc_name in seen:
+                        continue
+                    seen.add(doc_name)
+
+                    name_lower = doc_name.lower()
+                    if any(name_lower.endswith(e) for e in [".mp4", ".webm", ".srt", ".vtt"]) or "video" in name_lower:
+                        ref_type = "video"
+                    elif any(name_lower.endswith(e) for e in [".pdf", ".docx", ".xlsx"]) or any(
+                        w in name_lower for w in ["report", "guide", "brief", "whitepaper"]
+                    ):
+                        ref_type = "document"
+                    else:
+                        ref_type = "blog"
+
+                    meta = chunk.get("metadata") or {}
+                    score = chunk.get("score", 0)
+
+                    references.append({
+                        "type": ref_type,
+                        "id": chunk.get("id", doc_name),
+                        "title": doc_name.rsplit(".", 1)[0] if "." in doc_name else doc_name,
+                        "url": meta.get("url", ""),
+                        "meta": (
+                            meta.get("duration", "Video") if ref_type == "video"
+                            else f"{meta.get('pages', chunk.get('word_count', 0))} {'pages' if meta.get('pages') else 'words'} · {ref_type.capitalize()}"
+                            if ref_type == "document" else meta.get("date", "Article")
+                        ),
+                        "topic": meta.get("topic", ""),
+                        "score": round(score, 3),
+                    })
+
+                # Strip disclaimer from answer for clean return
+                disclaimer_match = re.search(r"DISCLAIMER:.*$", llm_answer, re.MULTILINE)
+                disclaimer = disclaimer_match.group(0) if disclaimer_match else (
+                    "DISCLAIMER: This information is based solely on published insights cited. "
+                    "Verify with the primary sources."
+                )
+                clean_answer = re.sub(r"DISCLAIMER:.*$", "", llm_answer, flags=re.MULTILINE).strip()
+
+                return {
+                    "answer": clean_answer,
+                    "disclaimer": disclaimer,
+                    "references": json.dumps(references),
+                    "retrieved_count": len(knowledge_result or []),
+                }
+
+          code_language: python3
+          desc: >-
+            Formats retrieved chunks into typed reference cards and cleans
+            the answer by extracting the disclaimer separately.
+          outputs:
+            - name: answer
+              type: string
+            - name: disclaimer
+              type: string
+            - name: references
+              type: string
+            - name: retrieved_count
+              type: number
+          selected: false
+          title: Reference Formatter
+          type: code
+          variables:
+            - value_selector:
+                - knowledge_retrieval
+                - result
+              variable: knowledge_result
+            - value_selector:
+                - rag_llm
+                - text
+              variable: llm_answer
+        height: 98
+        id: ref_formatter
+        position:
+          x: 980
+          y: 320
+        positionAbsolute:
+          x: 980
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─── END ────────────────────────────────────────────
+      - data:
+          desc: Final outputs consumed by the Next.js /api/chat route
+          outputs:
+            - type: string
+              value_selector:
+                - ref_formatter
+                - answer
+              variable: answer
+            - type: string
+              value_selector:
+                - ref_formatter
+                - disclaimer
+              variable: disclaimer
+            - type: string
+              value_selector:
+                - ref_formatter
+                - references
+              variable: references
+            - type: number
+              value_selector:
+                - ref_formatter
+                - retrieved_count
+              variable: retrieved_count
+          selected: false
+          title: End
+          type: end
+        height: 98
+        id: end
+        position:
+          x: 1280
+          y: 320
+        positionAbsolute:
+          x: 1280
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244

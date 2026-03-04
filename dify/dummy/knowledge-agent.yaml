@@ -1,0 +1,933 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Knowledge Management Agent — Dify 1.12.1 compatible (DSL v0.6.0)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Import: Dify Studio → Create App → Import DSL → paste/upload this file
+# ═══════════════════════════════════════════════════════════════════════════════
+
+version: "0.6.0"
+kind: app
+
+app:
+  name: Knowledge Management Agent
+  mode: workflow
+  description: >-
+    Knowledge Management Agent for Insights Platform.
+    Accepts uploaded documents (PDF, TXT, video transcript), extracts the core
+    explanation and summary, detects whether the topic already exists, and either
+    creates a new blog topic or updates the existing version — then indexes the
+    content into the Dify Knowledge Base for RAG retrieval.
+  icon: 🧠
+  icon_type: emoji
+  icon_background: "#1B40A0"
+  use_icon_as_answer_icon: false
+
+dependencies:
+  - type: model
+    value:
+      model_name: claude-sonnet-4-5
+      provider_name: anthropic
+
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+        - .pdf
+        - .txt
+        - .md
+        - .docx
+        - .html
+        - .csv
+        - .srt
+        - .vtt
+      allowed_file_types:
+        - document
+        - image
+      allowed_file_upload_methods:
+        - local_file
+        - remote_url
+      enabled: true
+      fileUploadConfig:
+        file_size_limit: 15
+        image_file_size_limit: 10
+      image:
+        enabled: false
+      number_limits: 5
+    opening_statement: ""
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+
+  graph:
+    edges:
+      # Start → Document Classifier
+      - data:
+          isInIteration: false
+          sourceType: start
+          targetType: llm
+        id: start-doc_classifier
+        source: start
+        sourceHandle: source
+        target: doc_classifier
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Document Classifier → Content Extractor
+      - data:
+          isInIteration: false
+          sourceType: llm
+          targetType: llm
+        id: doc_classifier-content_extractor
+        source: doc_classifier
+        sourceHandle: source
+        target: content_extractor
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Content Extractor → Topic Detector
+      - data:
+          isInIteration: false
+          sourceType: llm
+          targetType: llm
+        id: content_extractor-topic_detector
+        source: content_extractor
+        sourceHandle: source
+        target: topic_detector
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Topic Detector → If/Else (new vs existing)
+      - data:
+          isInIteration: false
+          sourceType: llm
+          targetType: if-else
+        id: topic_detector-topic_branch
+        source: topic_detector
+        sourceHandle: source
+        target: topic_branch
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Branch TRUE → New Blog Generator
+      - data:
+          isInIteration: false
+          sourceType: if-else
+          targetType: llm
+        id: topic_branch-true-new_blog_generator
+        source: topic_branch
+        sourceHandle: "true"
+        target: new_blog_generator
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Branch FALSE → Update Generator
+      - data:
+          isInIteration: false
+          sourceType: if-else
+          targetType: llm
+        id: topic_branch-false-update_generator
+        source: topic_branch
+        sourceHandle: "false"
+        target: update_generator
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # New Blog Generator → KB Indexer
+      - data:
+          isInIteration: false
+          sourceType: llm
+          targetType: code
+        id: new_blog_generator-kb_indexer
+        source: new_blog_generator
+        sourceHandle: source
+        target: kb_indexer
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # Update Generator → KB Indexer
+      - data:
+          isInIteration: false
+          sourceType: llm
+          targetType: code
+        id: update_generator-kb_indexer
+        source: update_generator
+        sourceHandle: source
+        target: kb_indexer
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+      # KB Indexer → End
+      - data:
+          isInIteration: false
+          sourceType: code
+          targetType: end
+        id: kb_indexer-end
+        source: kb_indexer
+        sourceHandle: source
+        target: end
+        targetHandle: target
+        type: custom
+        zIndex: 0
+
+    nodes:
+      # ─────────────────────────────────────────────────────
+      # START — inputs
+      # ─────────────────────────────────────────────────────
+      - data:
+          desc: >-
+            Entry point. Accepts a file (PDF/TXT/DOCX/SRT/VTT) and optional
+            metadata like author name, category, and the list of existing topic
+            slugs so the agent can decide if this is new or an update.
+          selected: false
+          title: Start
+          type: start
+          variables:
+            - label: Uploaded File
+              max_length: 48
+              options: []
+              required: true
+              type: file
+              variable: uploaded_file
+            - label: File Name
+              max_length: 200
+              options: []
+              required: true
+              type: string
+              variable: file_name
+            - label: Author Name
+              max_length: 100
+              options: []
+              required: false
+              type: string
+              variable: author_name
+            - label: Author Role
+              max_length: 100
+              options: []
+              required: false
+              type: string
+              variable: author_role
+            - label: Category
+              max_length: 80
+              options:
+                - Artificial Intelligence
+                - Digital Transformation
+                - Leadership
+                - Strategy
+                - Finance
+                - Operations
+              required: false
+              type: select
+              variable: category
+            - label: Existing Topic Slugs (JSON array string)
+              max_length: 5000
+              options: []
+              required: false
+              type: string
+              variable: existing_slugs_json
+            - label: Existing Contents (JSON array of slug+excerpt+preview)
+              max_length: 20000
+              options: []
+              required: false
+              type: string
+              variable: existing_contents_json
+        height: 330
+        id: start
+        position:
+          x: 80
+          y: 320
+        positionAbsolute:
+          x: 80
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 1 — Document Classifier
+      # Detects file type and extracts raw text
+      # ─────────────────────────────────────────────────────
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: >-
+            Detects whether the uploaded file is a document (PDF/DOCX/TXT/MD),
+            a video transcript (SRT/VTT), or structured data. Extracts and
+            normalizes the raw text content for downstream processing.
+          model:
+            completion_params:
+              temperature: 0.1
+              max_tokens: 4000
+            mode: chat
+            name: claude-sonnet-4-5
+            provider: anthropic
+          prompt_template:
+            - id: sys_doc_classifier
+              role: system
+              text: >-
+                You are a document processing specialist. Your task is to analyze
+                an uploaded file and extract its complete text content in a clean,
+                structured format.
+
+                Rules:
+                - If the file is a video transcript (SRT/VTT format), remove all
+                  timestamps and speaker labels, keeping only the spoken content
+                - If the file is a PDF or DOCX, preserve headings, paragraphs, and
+                  lists but strip page numbers, headers/footers, and metadata
+                - If the file is markdown, preserve the structure
+                - Output only the clean extracted text — no commentary
+
+                Detect and output the file type as one of:
+                  document | transcript | markdown | data
+
+                Format your response as JSON:
+                {
+                  "file_type": "document|transcript|markdown|data",
+                  "raw_text": "... full extracted and cleaned text ...",
+                  "detected_language": "en",
+                  "word_count": 1234
+                }
+            - id: usr_doc_classifier
+              role: user
+              text: >-
+                File name: {{#start.file_name#}}
+
+                File content:
+                {{#start.uploaded_file#}}
+
+                Extract and return the clean text content as JSON.
+          selected: false
+          title: Document Classifier
+          type: llm
+          variables: []
+          vision:
+            configs:
+              detail: high
+            enabled: true
+        height: 98
+        id: doc_classifier
+        position:
+          x: 380
+          y: 320
+        positionAbsolute:
+          x: 380
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 2 — Content Extractor
+      # Pulls title, summary, key points, stats, tags
+      # ─────────────────────────────────────────────────────
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: >-
+            Deeply analyzes the cleaned document text and extracts structured
+            content: title, subtitle, executive summary, key sections, statistics,
+            quotes, and tags. This becomes the foundation for the blog article.
+          model:
+            completion_params:
+              temperature: 0.3
+              max_tokens: 6000
+            mode: chat
+            name: claude-sonnet-4-5
+            provider: anthropic
+          prompt_template:
+            - id: sys_content_extractor
+              role: system
+              text: >-
+                You are an expert content strategist and editor for a management
+                consulting insights platform (think McKinsey Global Institute).
+
+                Given a raw document text, you must extract and structure the core
+                intellectual content into a precise JSON format.
+
+                Extract:
+                1. title — concise, authoritative (max 80 chars)
+                2. subtitle — one compelling sentence expanding on the title (max 150 chars)
+                3. topic_slug — URL-safe lowercase slug (e.g. "ai-in-the-workplace-2025")
+                4. category — one of: Artificial Intelligence, Digital Transformation,
+                   Leadership, Strategy, Finance, Operations
+                5. excerpt — 2-3 sentences capturing the core argument (max 300 chars)
+                6. key_stats — array of up to 5 data points: [{number: "92%", label: "..."}]
+                7. main_sections — array of sections, each with:
+                   - heading (string)
+                   - content (2-4 paragraphs of clean prose, McKinsey style)
+                   - bullets (array of key bullet points, max 5 per section)
+                8. key_quotes — array of up to 3 notable quotes or insights from the text
+                9. tags — array of 4-8 relevant topic tags
+                10. executive_summary — 150-word distillation of the document's core argument
+                11. read_time — estimated read time (e.g. "8 min read")
+                12. version_notes — what's new/changed if this seems like an update to
+                    existing content (or null if it appears to be entirely new content)
+
+                Output ONLY valid JSON. No preamble, no explanation.
+            - id: usr_content_extractor
+              role: user
+              text: >-
+                Author: {{#start.author_name#}}
+                Preferred Category: {{#start.category#}}
+                File type detected: {{#doc_classifier.text#}}
+
+                Raw document text to analyze:
+                ---
+                {{#doc_classifier.text#}}
+                ---
+
+                Extract and return structured content as JSON.
+          selected: false
+          title: Content Extractor
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 98
+        id: content_extractor
+        position:
+          x: 680
+          y: 320
+        positionAbsolute:
+          x: 680
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 3 — Topic Detector
+      # Checks if this topic already exists
+      # ─────────────────────────────────────────────────────
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: >-
+            Compares the extracted topic_slug against the list of existing blog
+            slugs to determine if this is a new topic or an update to an
+            existing one. Also finds the closest matching existing article if
+            it's an update.
+          model:
+            completion_params:
+              temperature: 0.1
+              max_tokens: 500
+            mode: chat
+            name: claude-sonnet-4-5
+            provider: anthropic
+          prompt_template:
+            - id: sys_topic_detector
+              role: system
+              text: >-
+                You are a content deduplication system. Given a new document's
+                topic slug and a list of existing topic slugs, determine:
+
+                1. is_new_topic — true if this topic has never been covered before,
+                   false if a similar topic already exists
+                2. matching_slug — if is_new_topic is false, the slug of the most
+                   similar existing article (or null)
+                3. similarity_reason — brief explanation of why you think it matches
+                   (or "No match found" if new)
+
+                Matching rules:
+                - Exact slug match → always is_new_topic: false
+                - Same core subject with different year/date → is_new_topic: false (it's an update)
+                - Same general theme but distinctly different angle → is_new_topic: true
+                - When in doubt → is_new_topic: true (prefer creating new)
+
+                Output ONLY valid JSON:
+                {
+                  "is_new_topic": true,
+                  "matching_slug": null,
+                  "similarity_reason": "No match found"
+                }
+            - id: usr_topic_detector
+              role: user
+              text: >-
+                New document topic slug: {{#content_extractor.text#}}
+
+                Existing topic slugs (JSON array):
+                {{#start.existing_slugs_json#}}
+
+                Analyze and return the detection result as JSON.
+          selected: false
+          title: Topic Detector
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 98
+        id: topic_detector
+        position:
+          x: 980
+          y: 320
+        positionAbsolute:
+          x: 980
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 4 — If/Else Branch
+      # Route: new topic vs update existing
+      # ─────────────────────────────────────────────────────
+      - data:
+          cases:
+            - case_id: "true"
+              conditions:
+                - comparison_operator: contains
+                  id: cond_is_new
+                  value: '"is_new_topic": true'
+                  variable_selector:
+                    - topic_detector
+                    - text
+              logical_operator: and
+          desc: >-
+            Routes to new blog creation if topic is new,
+            or to version update generator if topic already exists.
+          selected: false
+          title: New or Update?
+          type: if-else
+        height: 126
+        id: topic_branch
+        position:
+          x: 1280
+          y: 320
+        positionAbsolute:
+          x: 1280
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 5a — New Blog Generator
+      # Creates a complete new blog article
+      # ─────────────────────────────────────────────────────
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: >-
+            Generates a complete, publication-ready blog article for a brand new
+            topic. Writes in authoritative McKinsey editorial style with proper
+            HTML formatting for the Insights platform.
+          model:
+            completion_params:
+              temperature: 0.5
+              max_tokens: 8000
+            mode: chat
+            name: claude-sonnet-4-5
+            provider: anthropic
+          prompt_template:
+            - id: sys_new_blog
+              role: system
+              text: >-
+                You are a senior editor at a top management consulting firm's
+                research publication. Your task is to write a complete, authoritative
+                blog article from extracted content.
+
+                Style guidelines:
+                - Write like McKinsey Global Institute: clear, authoritative, data-driven
+                - Use <h2> tags for main sections, <h3> for subsections
+                - Use <p> for paragraphs (3-5 sentences each)
+                - Use <ul><li> for bullet lists
+                - Use <blockquote> for key insights or notable quotes
+                - Use <div class="stat-callout"><div class="stat-number">X%</div><p>Label</p></div>
+                  for compelling statistics
+                - No fluff, no hedging — every sentence must add value
+                - Write 600-900 words of body content
+
+                Output ONLY valid JSON with this exact structure:
+                {
+                  "action": "create",
+                  "slug": "topic-slug-here",
+                  "title": "Article Title",
+                  "subtitle": "One compelling sentence subtitle",
+                  "category": "Category Name",
+                  "excerpt": "2-3 sentence excerpt",
+                  "author": "Author Name",
+                  "author_role": "Author Role",
+                  "hero_color": "#1B40A0",
+                  "read_time": "X min read",
+                  "tags": ["tag1", "tag2"],
+                  "stats": [{"number": "92%", "label": "description"}],
+                  "content_html": "<h2>Section</h2><p>...</p>",
+                  "kb_text": "Plain text version for knowledge base indexing. All key points, stats, and insights in continuous prose.",
+                  "version": "1.0",
+                  "version_notes": null
+                }
+            - id: usr_new_blog
+              role: user
+              text: >-
+                Author: {{#start.author_name#}}
+                Author Role: {{#start.author_role#}}
+                Today's date: {{#sys.date#}}
+
+                Extracted content to transform into a blog article:
+                {{#content_extractor.text#}}
+
+                Write the complete blog article and return as JSON.
+          selected: false
+          title: New Blog Generator
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 98
+        id: new_blog_generator
+        position:
+          x: 1580
+          y: 160
+        positionAbsolute:
+          x: 1580
+          y: 160
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 5b — Update Generator
+      # Updates an existing topic with new version
+      # ─────────────────────────────────────────────────────
+      - data:
+          context:
+            enabled: false
+            variable_selector: []
+          desc: >-
+            Generates an updated version of an existing blog article. Preserves
+            the original structure but incorporates new data, findings, and
+            insights. Increments the version number and adds version notes.
+          model:
+            completion_params:
+              temperature: 0.4
+              max_tokens: 8000
+            mode: chat
+            name: claude-sonnet-4-5
+            provider: anthropic
+          prompt_template:
+            - id: sys_update
+              role: system
+              text: >-
+                You are a senior editor updating an existing research article with
+                new findings. Your task is to create an updated version that:
+
+                1. Preserves the article's core structure and identity
+                2. Incorporates all new data, statistics, and insights from the new document
+                3. Updates outdated figures with current ones
+                4. Adds a "What's New" section at the top highlighting changes
+                5. Increments the version (1.0 → 2.0, or 1.1 → 1.2 for minor updates)
+                6. Writes version notes explaining what changed
+
+                Style: McKinsey editorial — clear, authoritative, data-driven.
+                Use the same HTML formatting conventions.
+
+                Output ONLY valid JSON with this exact structure:
+                {
+                  "action": "update",
+                  "slug": "existing-slug-here",
+                  "title": "Updated Article Title",
+                  "subtitle": "Updated subtitle reflecting new findings",
+                  "category": "Category Name",
+                  "excerpt": "Updated 2-3 sentence excerpt",
+                  "author": "Author Name",
+                  "author_role": "Author Role",
+                  "hero_color": "#0D2160",
+                  "read_time": "X min read",
+                  "tags": ["tag1", "tag2"],
+                  "stats": [{"number": "92%", "label": "description"}],
+                  "content_html": "<div class='version-callout'><strong>Updated:</strong> ...</div><h2>What's New in This Version</h2><p>...</p><h2>Section</h2><p>...</p>",
+                  "kb_text": "Plain text for knowledge base. All updated key points, new stats, and insights.",
+                  "version": "2.0",
+                  "version_notes": "Updated with 2025 data. New section on X. Revised statistics for Y."
+                }
+            - id: usr_update
+              role: user
+              text: >-
+                Author: {{#start.author_name#}}
+                Author Role: {{#start.author_role#}}
+                Existing article slug to update: {{#topic_detector.text#}}
+                Today's date: {{#sys.date#}}
+
+                Existing articles context (find the one matching the slug above):
+                {{#start.existing_contents_json#}}
+
+                New content to incorporate:
+                {{#content_extractor.text#}}
+
+                Instructions:
+                - Find the matching article from existing_contents_json using the slug
+                - Preserve the article's core identity and structure
+                - Incorporate all new data and insights from the new content
+                - Add a "What's New in Version X.0" section at the top of the body
+                - Update outdated statistics with new figures
+                - Increment version number (1.0 → 2.0, minor update → add 0.1)
+                - Write version_notes summarizing what changed (max 100 chars)
+                - Generate the updated article and return as JSON.
+          selected: false
+          title: Update Generator
+          type: llm
+          variables: []
+          vision:
+            enabled: false
+        height: 98
+        id: update_generator
+        position:
+          x: 1580
+          y: 480
+        positionAbsolute:
+          x: 1580
+          y: 480
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # NODE 6 — KB Indexer (Code)
+      # Merges outputs and prepares final payload
+      # ─────────────────────────────────────────────────────
+      - data:
+          code: |
+            import json
+
+            def main(
+                new_blog_output: str,
+                update_output: str,
+                classifier_output: str,
+                author_name: str,
+                file_name: str
+            ) -> dict:
+                """
+                Merges whichever generator ran (new or update),
+                cleans the JSON, adds metadata, and returns the
+                final payload that the Next.js API will consume.
+                """
+                import datetime
+
+                # Parse classifier to get word count
+                try:
+                    classifier = json.loads(classifier_output)
+                    word_count = classifier.get("word_count", 0)
+                    file_type = classifier.get("file_type", "document")
+                except Exception:
+                    word_count = 0
+                    file_type = "document"
+
+                # Prefer whichever generator produced output
+                raw = new_blog_output if new_blog_output and len(new_blog_output) > 10 else update_output
+
+                # Strip markdown code fences if the LLM wrapped the JSON
+                raw = raw.strip()
+                if raw.startswith("```"):
+                    raw = raw.split("```")[1]
+                    if raw.startswith("json"):
+                        raw = raw[4:]
+                raw = raw.strip().rstrip("```").strip()
+
+                try:
+                    article = json.loads(raw)
+                except json.JSONDecodeError as e:
+                    return {
+                        "success": False,
+                        "error": f"JSON parse error: {str(e)}",
+                        "raw": raw[:500],
+                        "article": None,
+                        "kb_text": None,
+                    }
+
+                # Add runtime metadata
+                article["created_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+                article["source_file"] = file_name
+                article["source_file_type"] = file_type
+                article["word_count"] = word_count
+                article["author"] = article.get("author") or author_name or "Insights Editorial"
+
+                # Derive hero color from action
+                if not article.get("hero_color"):
+                    article["hero_color"] = "#1B40A0" if article.get("action") == "create" else "#0D2160"
+
+                # Ensure slug is URL-safe
+                slug = article.get("slug", "")
+                slug = slug.lower().replace(" ", "-").replace("_", "-")
+                import re
+                slug = re.sub(r"[^a-z0-9-]", "", slug)
+                article["slug"] = slug
+
+                # Extract kb_text for knowledge base indexing
+                kb_text = article.pop("kb_text", "") or ""
+                if not kb_text and article.get("content_html"):
+                    # Fallback: strip HTML tags
+                    html = article["content_html"]
+                    kb_text = re.sub(r"<[^>]+>", " ", html).strip()
+                    kb_text = re.sub(r"\s+", " ", kb_text)
+
+                # Build final response payload
+                return {
+                    "success": True,
+                    "error": None,
+                    "article": json.dumps(article),
+                    "kb_text": kb_text,
+                    "action": article.get("action", "create"),
+                    "slug": article.get("slug", ""),
+                    "title": article.get("title", ""),
+                    "version": article.get("version", "1.0"),
+                }
+
+          code_language: python3
+          desc: >-
+            Merges the generator outputs, sanitizes the JSON, enriches with
+            metadata, extracts plain text for KB indexing, and returns the
+            final structured payload to the End node.
+          outputs:
+            - name: success
+              type: boolean
+            - name: error
+              type: string
+            - name: article
+              type: string
+            - name: kb_text
+              type: string
+            - name: action
+              type: string
+            - name: slug
+              type: string
+            - name: title
+              type: string
+            - name: version
+              type: string
+          selected: false
+          title: KB Indexer & Payload Builder
+          type: code
+          variables:
+            - value_selector:
+                - new_blog_generator
+                - text
+              variable: new_blog_output
+            - value_selector:
+                - update_generator
+                - text
+              variable: update_output
+            - value_selector:
+                - doc_classifier
+                - text
+              variable: classifier_output
+            - value_selector:
+                - start
+                - author_name
+              variable: author_name
+            - value_selector:
+                - start
+                - file_name
+              variable: file_name
+        height: 98
+        id: kb_indexer
+        position:
+          x: 1880
+          y: 320
+        positionAbsolute:
+          x: 1880
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+
+      # ─────────────────────────────────────────────────────
+      # END — final outputs
+      # ─────────────────────────────────────────────────────
+      - data:
+          desc: >-
+            Returns the complete article payload to the calling Next.js API.
+            The caller uses `article` (JSON) to upsert the blog, and `kb_text`
+            to index the document into the Dify Knowledge Base dataset.
+          outputs:
+            - type: string
+              value_selector:
+                - kb_indexer
+                - success
+              variable: success
+            - type: string
+              value_selector:
+                - kb_indexer
+                - error
+              variable: error
+            - type: string
+              value_selector:
+                - kb_indexer
+                - article
+              variable: article
+            - type: string
+              value_selector:
+                - kb_indexer
+                - kb_text
+              variable: kb_text
+            - type: string
+              value_selector:
+                - kb_indexer
+                - action
+              variable: action
+            - type: string
+              value_selector:
+                - kb_indexer
+                - slug
+              variable: slug
+            - type: string
+              value_selector:
+                - kb_indexer
+                - title
+              variable: title
+            - type: string
+              value_selector:
+                - kb_indexer
+                - version
+              variable: version
+          selected: false
+          title: End
+          type: end
+        height: 98
+        id: end
+        position:
+          x: 2180
+          y: 320
+        positionAbsolute:
+          x: 2180
+          y: 320
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
