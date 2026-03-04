@@ -1,0 +1,373 @@
+app:
+  description: RAG Workflow for Ask Insights chatbot. Receives a user question, retrieves
+    relevant chunks from the Knowledge Base, generates a grounded answer with inline
+    citations, and returns structured reference cards (blog / video / document).
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: rag-workflow-aqil
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.30@04fa1c28928e92e425bc946f8f4f5c8f14d0531786c384f128c0e9445f1eee56
+    version: null
+kind: app
+version: 0.5.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: true
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: knowledge-retrieval
+      id: 1772504929273-source-1772505096154-target
+      source: '1772504929273'
+      sourceHandle: source
+      target: '1772505096154'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: knowledge-retrieval
+        targetType: llm
+      id: 1772505096154-source-1772505131646-target
+      source: '1772505096154'
+      sourceHandle: source
+      target: '1772505131646'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1772505131646-source-1772505201745-target
+      source: '1772505131646'
+      sourceHandle: source
+      target: '1772505201745'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: end
+      id: 1772505201745-source-1772505309288-target
+      source: '1772505201745'
+      sourceHandle: source
+      target: '1772505309288'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: User question + optional context inputs for the RAG chatbot
+        selected: false
+        title: Start
+        type: start
+        variables:
+        - default: ''
+          hint: ''
+          label: question
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: true
+          type: paragraph
+          variable: question
+        - default: ''
+          hint: ''
+          label: chat_history
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: chat_history
+        - default: ''
+          hint: ''
+          label: topic_filter
+          max_length: 10000
+          options: []
+          placeholder: ''
+          required: false
+          type: paragraph
+          variable: topic_filter
+      height: 204
+      id: '1772504929273'
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        dataset_ids:
+        - m3Q9MfaFZkC7W74oZIqNmQUahKHlqBtm6kLelxpGD269k8cdQgn+53X1RBZdDM/e
+        desc: 'Retrieves the top-K most relevant document chunks from the Insights
+          Knowledge Base. Configure: Top K = 5, Score ≥ 0.5. Enable reranking if available
+          on your Dify plan.'
+        multiple_retrieval_config:
+          reranking_enable: true
+          reranking_mode: reranking_model
+          reranking_model:
+            model: gte-rerank
+            provider: langgenius/tongyi/tongyi
+          top_k: 4
+        query_attachment_selector: []
+        query_variable_selector:
+        - '1772504929273'
+        - question
+        retrieval_mode: multiple
+        selected: false
+        title: Knowledge Retrieval
+        type: knowledge-retrieval
+      height: 181
+      id: '1772505096154'
+      position:
+        x: 382
+        y: 282
+      positionAbsolute:
+        x: 382
+        y: 282
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: true
+          variable_selector:
+          - '1772505096154'
+          - result
+        desc: Generates a grounded, cited answer from retrieved Knowledge Base chunks.
+          Uses Professional editorial style with inline [1][2][3] citations.
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3.5-plus
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: f62efa5c-5fbd-42ef-a2ca-819fad7a2ee3
+          role: system
+          text: "You are \"Ask Insights\" — an expert AI research assistant for a\
+            \ management consulting insights platform.\nRULES: - Answer using ONLY\
+            \ the retrieved context below. Never invent facts. - Write in Professional\
+            \ style: structured, authoritative, no filler - Use ## for section headings,\
+            \ bullet points for lists - Add inline citations: [1], [2], [3] in order\
+            \ of first use - Maximum 300 words - If context is insufficient: \"This\
+            \ topic isn't fully covered in our\n  current published insights. Here's\
+            \ what related research shows: ...\"\n- Final line MUST be exactly:\n\
+            \  DISCLAIMER: This information is based solely on published insights\
+            \ cited. Verify with the primary sources.\n\nRETRIEVED CONTEXT: {{#context#}}\n\
+            {% if chat_history and chat_history != \"\" %} PRIOR CONVERSATION: {{#1772504929273.chat_history#}}\
+            \ {% endif %}\n{% if topic_filter and topic_filter != \"\" %} Focus on\
+            \ topics related to: {{#1772504929273.topic_filter#}} {% endif %}"
+        - id: 447bdd5a-84ae-4046-8749-11c2f2258b8b
+          role: user
+          text: 'User question: {{#1772504929273.question#}}
+
+            '
+        selected: true
+        title: RAG Answer Generator
+        type: llm
+        vision:
+          configs:
+            detail: high
+            variable_selector:
+            - sys
+            - files
+          enabled: true
+      height: 163
+      id: '1772505131646'
+      position:
+        x: 684
+        y: 282
+      positionAbsolute:
+        x: 684
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\nimport re\n\ndef main(knowledge_result: list, llm_answer:\
+          \ str) -> dict:\n    \"\"\"\n    Deduplicates retrieved chunks by source\
+          \ document and builds\n    structured reference cards: blog / video / document.\n\
+          \    \"\"\"\n    seen = set()\n    references = []\n\n    for chunk in (knowledge_result\
+          \ or []):\n        doc_name = chunk.get(\"title\") or chunk.get(\"document_name\"\
+          ) or \"\"\n        if doc_name in seen:\n            continue\n        seen.add(doc_name)\n\
+          \n        name_lower = doc_name.lower()\n        if any(name_lower.endswith(e)\
+          \ for e in [\".mp4\", \".webm\", \".srt\", \".vtt\"]) or \"video\" in name_lower:\n\
+          \            ref_type = \"video\"\n        elif any(name_lower.endswith(e)\
+          \ for e in [\".pdf\", \".docx\", \".xlsx\"]) or any(\n            w in name_lower\
+          \ for w in [\"report\", \"guide\", \"brief\", \"whitepaper\"]\n        ):\n\
+          \            ref_type = \"document\"\n        else:\n            ref_type\
+          \ = \"blog\"\n\n        meta = chunk.get(\"metadata\") or {}\n        score\
+          \ = chunk.get(\"score\", 0)\n\n        references.append({\n           \
+          \ \"type\": ref_type,\n            \"id\": chunk.get(\"id\", doc_name),\n\
+          \            \"title\": doc_name.rsplit(\".\", 1)[0] if \".\" in doc_name\
+          \ else doc_name,\n            \"url\": meta.get(\"url\", \"\"),\n      \
+          \      \"meta\": (\n                meta.get(\"duration\", \"Video\") if\
+          \ ref_type == \"video\"\n                else f\"{meta.get('pages', chunk.get('word_count',\
+          \ 0))} {'pages' if meta.get('pages') else 'words'} · {ref_type.capitalize()}\"\
+          \n                if ref_type == \"document\" else meta.get(\"date\", \"\
+          Article\")\n            ),\n            \"topic\": meta.get(\"topic\", \"\
+          \"),\n            \"score\": round(score, 3),\n        })\n\n    # Strip\
+          \ disclaimer from answer for clean return\n    disclaimer_match = re.search(r\"\
+          DISCLAIMER:.*$\", llm_answer, re.MULTILINE)\n    disclaimer = disclaimer_match.group(0)\
+          \ if disclaimer_match else (\n        \"DISCLAIMER: This information is\
+          \ based solely on published insights cited. \"\n        \"Verify with the\
+          \ primary sources.\"\n    )\n    clean_answer = re.sub(r\"DISCLAIMER:.*$\"\
+          , \"\", llm_answer, flags=re.MULTILINE).strip()\n\n    return {\n      \
+          \  \"answer\": clean_answer,\n        \"disclaimer\": disclaimer,\n    \
+          \    \"references\": json.dumps(references),\n        \"retrieved_count\"\
+          : len(knowledge_result or []),\n    }\n"
+        code_language: python3
+        desc: Formats retrieved chunks into typed reference cards and cleans the answer
+          by extracting the disclaimer separately.
+        outputs:
+          answer:
+            children: null
+            type: string
+          disclaimer:
+            children: null
+            type: string
+          references:
+            children: null
+            type: string
+          retrieved_count:
+            children: null
+            type: number
+        selected: false
+        title: Reference Formatter
+        type: code
+        variables:
+        - value_selector:
+          - '1772505096154'
+          - result
+          value_type: array[object]
+          variable: knowledge_result
+        - value_selector:
+          - '1772505131646'
+          - text
+          value_type: string
+          variable: llm_answer
+      height: 111
+      id: '1772505201745'
+      position:
+        x: 986
+        y: 282
+      positionAbsolute:
+        x: 986
+        y: 282
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: Final outputs consumed by the Next.js /api/chat route
+        outputs:
+        - value_selector:
+          - '1772505201745'
+          - answer
+          value_type: string
+          variable: answer
+        - value_selector:
+          - '1772505201745'
+          - disclaimer
+          value_type: string
+          variable: disclaimer
+        - value_selector:
+          - '1772505201745'
+          - references
+          value_type: string
+          variable: references
+        - value_selector:
+          - '1772505201745'
+          - retrieved_count
+          value_type: number
+          variable: retrieved_count
+        selected: false
+        title: Output
+        type: end
+      height: 210
+      id: '1772505309288'
+      position:
+        x: 1288
+        y: 282
+      positionAbsolute:
+        x: 1288
+        y: 282
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -212.00779412504505
+      y: 92.4796606464609
+      zoom: 0.7578582832551989
+  rag_pipeline_variables: []
